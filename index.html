@@ -3,49 +3,52 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SkulTok - AI Tutor bilong PNG with Voice</title>
+<title id="pageTitle">SkulTok - AI Tutor bilong PNG with Voice</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <style>
+:root{--png-red:#b5122f;--png-black:#111;--png-gold:#ffce00;--png-gold-light:#fff3bf;--surface:#fffaf0;--border:#d6c9a1}
 *{box-sizing:border-box}
-body{font-family:Arial,sans-serif;background:#f0fdf4;margin:0;padding:0;min-width:0}
-.header{background:#15803d;color:white;padding:20px 16px;text-align:center}
+body{font-family:Arial,sans-serif;background:var(--surface);color:var(--png-black);margin:0;padding:0;min-width:0}
+.header{background:var(--png-red);color:white;padding:20px 16px;text-align:center;border-bottom:5px solid var(--png-gold)}
 .header h1{margin:0 0 8px;font-size:clamp(1.5rem,4vw,2rem)}
-.header p{margin:0}
+.header p{margin:0;color:#111;font-weight:700}
 .container{width:min(850px,calc(100% - 32px));margin:20px auto;background:white;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);overflow:hidden}
-.controls{display:flex;gap:8px;padding:12px;background:#dcfce7;flex-wrap:wrap}
-select,button{padding:10px;border-radius:8px;border:1px solid #ccc}
+.controls{display:flex;gap:8px;padding:12px;background:var(--png-gold-light);flex-wrap:wrap}
+select,button{padding:10px;border-radius:8px;border:1px solid var(--border);color:var(--png-black)}
 .controls select{flex:1 1 180px;min-width:0}
 .controls label{display:inline-flex;align-items:center;gap:5px;padding:0 4px}
 .controls select,.controls button{cursor:pointer}
 .controls label,.controls input[type="checkbox"]{cursor:pointer}
-.chat{height:clamp(300px,55vh,520px);overflow-y:auto;padding:15px;display:flex;flex-direction:column;gap:10px;overscroll-behavior:contain}
+.chat{height:clamp(240px,55dvh,520px);overflow-y:auto;padding:15px;display:flex;flex-direction:column;gap:10px;overscroll-behavior:contain}
 .msg{padding:10px 14px;border-radius:12px;max-width:85%;white-space:pre-wrap;overflow-wrap:anywhere;position:relative}
-.user{align-self:flex-end;background:#15803d;color:white}
-.bot{align-self:flex-start;background:#e5e7eb}
-.input{display:flex;flex-direction:column;padding:12px;border-top:1px solid #eee;gap:8px}
+.user{align-self:flex-end;background:var(--png-red);color:white}
+.bot{align-self:flex-start;background:#f1f1f1;color:var(--png-black);border-left:3px solid var(--png-gold)}
+.input{display:flex;flex-direction:column;padding:12px;border-top:1px solid var(--border);gap:8px}
 .input-controls{display:flex;align-items:center;gap:8px;width:100%}
-.input input{flex:1;min-width:0;width:100%;padding:12px;border-radius:8px;border:1px solid #ccc;font:inherit;font-size:16px}
-.audio-visualizer{display:none;align-items:center;gap:10px;padding:8px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;color:#166534;font-size:13px}
+.input input{flex:1;min-width:0;width:100%;padding:12px;border-radius:8px;border:1px solid var(--border);font:inherit;font-size:16px}
+.input input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid var(--png-gold);outline-offset:2px}
+.audio-visualizer{display:none;align-items:center;gap:10px;padding:8px 12px;background:var(--png-gold-light);border:1px solid var(--png-gold);border-radius:10px;color:var(--png-black);font-size:13px}
 .audio-visualizer.active{display:flex}
 .audio-visualizer canvas{display:block;width:100%;height:42px;min-width:0}
 .audio-visualizer-label{flex:none;font-weight:600}
 .icon-btn{font-size:18px;background:#fff;cursor:pointer;min-width:44px}
-.record-btn{display:inline-flex;align-items:center;justify-content:center;min-width:44px;width:44px;height:44px;padding:10px;border:1px solid #15803d;border-radius:50%;background:#15803d;color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s ease,border-color .15s ease,transform .15s ease}
-.record-btn:hover{background:#166534;border-color:#166534}
+.record-btn{display:inline-flex;align-items:center;justify-content:center;min-width:44px;width:44px;height:44px;padding:10px;border:1px solid var(--png-red);border-radius:50%;background:var(--png-red);color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s ease,border-color .15s ease,transform .15s ease}
+.record-btn:hover{background:#8f0e26;border-color:#8f0e26}
 .record-btn:active{transform:scale(.98)}
-.record-btn:focus-visible{outline:3px solid #86efac;outline-offset:2px}
+.record-btn:focus-visible{outline:3px solid var(--png-gold);outline-offset:2px}
 .record-btn svg{width:18px;height:18px;flex:none}
 .record-btn .stop-icon{display:none}
-.record-btn.recording{background:#b91c1c;border-color:#b91c1c;animation:none}
-.record-btn.recording:hover{background:#991b1b;border-color:#991b1b}
+.record-btn.recording{background:var(--png-black);border-color:var(--png-black);animation:none}
+.record-btn.recording:hover{background:#333;border-color:#333}
 .record-btn.recording .mic-icon{display:none}
 .record-btn.recording .stop-icon{display:block}
-.send{background:#15803d;color:white;border:none}
-.speak-btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;background:#fef3c7;border:none;cursor:pointer;margin-top:6px;border-radius:6px;padding:6px 9px;color:#713f12}
+.send{background:var(--png-red);color:white;border:none}
+.send:hover{background:#8f0e26}
+.speak-btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;background:var(--png-gold);border:none;cursor:pointer;margin-top:6px;border-radius:6px;padding:6px 9px;color:var(--png-black)}
 .speak-btn svg{width:16px;height:16px;flex:none}
 .speaker-icon{width:24px;height:24px;vertical-align:middle}
-.inline-mic-icon{width:16px;height:16px;vertical-align:-3px;margin:0 2px;color:#15803d}
-.footer{text-align:center;padding:10px;font-size:12px;color:#666}
+.inline-mic-icon{width:16px;height:16px;vertical-align:-3px;margin:0 2px;color:var(--png-red)}
+.footer{text-align:center;padding:10px;font-size:12px;color:#444}
 @media(max-width:600px){
  .header{padding:16px 12px}
  .header p{font-size:14px;line-height:1.4}
@@ -53,7 +56,7 @@ select,button{padding:10px;border-radius:8px;border:1px solid #ccc}
  .controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px}
  .controls select,.controls button{width:100%;min-height:44px}
  .controls label{min-height:44px}
- .chat{height:clamp(240px,48dvh,440px);padding:12px}
+ .chat{height:clamp(200px,48dvh,440px);padding:12px}
  .msg{max-width:92%}
  .input{padding:10px;gap:8px}
  .input-controls{gap:6px}
@@ -72,51 +75,233 @@ select,button{padding:10px;border-radius:8px;border:1px solid #ccc}
  .container{width:calc(100% - 40px)}
  .chat{height:clamp(320px,52vh,460px)}
 }
+@media(max-height:500px){
+ .header{padding:10px 12px}
+ .header h1{margin-bottom:4px}
+ .container{margin:8px auto}
+ .controls{padding:8px}
+ .chat{height:clamp(120px,40dvh,260px);padding:10px}
+ .input{padding:8px}
+}
+@media(max-height:500px) and (min-width:381px){
+ .controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+ .controls select,.controls button{min-width:0}
+ .controls label{justify-content:center}
+}
 </style>
 </head>
 <body>
 <div class="header">
-<h1>SkulTok 🇵🇬 <svg class="speaker-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Audio"><path d="M11 5 6 9H3v6h3l5 4V5Z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path><path d="M19 5a10 10 0 0 1 0 14"></path></svg></h1>
-<p>Bilingual Voice Tutor - Tok Pisin + English | From Papua New Guinea</p>
+<h1>SkulTok 🇵🇬 <svg id="headerAudioIcon" class="speaker-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Audio"><path d="M11 5 6 9H3v6h3l5 4V5Z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path><path d="M19 5a10 10 0 0 1 0 14"></path></svg></h1>
+<p id="tagline">Bilingual Voice Tutor - Tok Pisin + English | From Papua New Guinea</p>
 </div>
 <div class="container">
 <div class="controls">
 <select id="grade"><option>Grade 5</option><option>Grade 6</option><option>Grade 7</option><option selected>Grade 8</option><option>Grade 9</option><option>Grade 10</option><option>Grade 11</option><option>Grade 12</option></select>
-<select id="lang"><option>English + Tok Pisin</option><option>English Only</option><option>Tok Pisin Only</option></select>
-<label><input type="checkbox" id="autoSpeak" checked> Auto Speak</label>
-<button onclick="clearChat()" title="Clear the conversation">Clear</button>
+<select id="lang"><option value="English + Tok Pisin">English + Tok Pisin</option><option value="English Only">English Only</option><option value="Tok Pisin Only">Tok Pisin Only</option></select>
+<label><input type="checkbox" id="autoSpeak" checked> <span id="autoSpeakText">Auto Speak</span></label>
+<button id="clearChatButton" onclick="clearChat()" title="Clear the conversation">Clear chat</button>
 </div>
 <div id="chat" class="chat">
-<div class="msg bot">Gude! Mi SkulTok. Press mic <svg class="inline-mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"></rect><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8"></path></svg> na toktok, o raitim kwestin. / Press mic to speak or type your question!
+<div class="msg bot"><span id="greetingText">Hello! Pressim mic o typim askim blo yu. / Press the mic or type your question.</span>
 <button class="speak-btn" onclick="speakText(this)" aria-label="Listen to greeting" title="Play the greeting aloud"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path></svg><span>Harim / Listen</span></button>
 </div>
 </div>
 <div class="input">
 <div id="audioVisualizer" class="audio-visualizer" aria-live="polite">
-<span class="audio-visualizer-label">Listening</span>
+<span id="audioVisualizerLabel" class="audio-visualizer-label">Listening</span>
 <canvas id="audioSpectrum" role="img" aria-label="Live microphone audio spectrum"></canvas>
 </div>
 <div class="input-controls">
-<button id="mic" class="record-btn" onclick="toggleMic()" aria-label="Start voice recording" aria-pressed="false" title="Start voice recording">
+<button id="mic" class="record-btn" onclick="toggleMic()" aria-label="Press mic to speak" aria-pressed="false" title="Press mic to speak">
 <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"></rect><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8"></path></svg>
 <svg class="stop-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
 </button>
-<input id="q" placeholder="Askim kwestin or press mic..." onkeypress="if(event.key==='Enter')ask()">
-<button class="icon-btn send" onclick="ask()" aria-label="Send message" title="Send your message">➤</button>
-<button class="icon-btn" onclick="stopSpeaking()" aria-label="Stop audio playback" title="Stop audio playback"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"></path><path d="m22 9-6 6m0-6 6 6"></path></svg></button>
+<input id="q" placeholder="Type your question here..." aria-label="Type your question here" onkeypress="if(event.key==='Enter')ask()">
+<button id="sendButton" class="icon-btn send" onclick="ask()" aria-label="Send your message" title="Send your message">➤</button>
+<button id="stopAudioButton" class="icon-btn" onclick="stopSpeaking()" aria-label="Stop audio playback" title="Stop audio playback"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"></path><path d="m22 9-6 6m0-6 6 6"></path></svg></button>
 </div>
 </div>
 </div>
-<div class="footer">Built in Papua New Guinea for AI Builder Cup 2026 | Voice: Web Speech API + Gemini</div>
+<div id="footer" class="footer">Built in Papua New Guinea for AI Builder Cup 2026 | Voice: Web Speech API + Gemini</div>
 <script>
+const UI_TEXT={
+ 'English + Tok Pisin':{
+  pageTitle:'SkulTok - AI Tutor bilong PNG with Voice',
+  audioLabel:'Audio',
+  spectrumLabel:'Live microphone audio spectrum',
+  tagline:'Bilingual Voice Tutor - Tok Pisin + English | From Papua New Guinea',
+  englishOption:'English Only',
+  tokPisinOption:'Tok Pisin Only',
+  autoSpeak:'Auto Speak / Mekim em i toktok',
+  clearChat:'Clearim / Clear chat',
+  clearTitle:'Clearim chat (Clear the conversation)',
+  greeting:'Hello! Pressim mic o typim askim blo yu. / Press the mic or type your question.',
+  listen:'Harim / Listen',
+  listening:'Listening',
+  micSpeak:'Pressim mic long toktok (Press mic to speak)',
+  micStop:'Stopim recording (Stop recording)',
+  micUnsupported:'Your browser no support mic. Use Chrome on Android.',
+  micError:'Mic error: ',
+  micErrorHelp:' - allow microphone in browser',
+  questionPlaceholder:'Typim askim blo yu hia (Type your question here)...',
+  questionLabel:'Typim askim blo yu hia (Type your question here)',
+  send:'Sendim askim (Send your message)',
+  stopAudio:'Stop audio playback',
+  footer:'Built in Papua New Guinea for AI Builder Cup 2026 | Voice: Web Speech API + Gemini',
+  noResponse:'Mi no kisim bekim. Plis traim gen. (No response received. Please try again.)',
+  connectionError:'Sori, connection bagarap. Try gen.',
+  clearMessage:'Stori bilong chat i pinis. Pressim mic na toktok! (Chat cleared. Press the mic and speak!)',
+  aiNotConfigured:'AI sevis i no redi. Plis toktok wantaim admin bilong app. (The AI service is not configured. Please contact the app administrator.)',
+  aiUnavailable:'AI sevis i no wok gut nau. Plis traim gen bihain liklik. (The AI service is temporarily unavailable. Please try again shortly.)',
+  aiTimedOut:'AI sevis i kisim longpela taim tumas. Plis traim gen. (The AI service timed out. Please try again.)',
+  aiUnreachable:'Mi no inap go long AI sevis. Sekim intanet na traim gen. (The AI service could not be reached. Check your connection and try again.)',
+  aiRejected:'AI sevis i no kisim request. Plis traim gen o toktok wantaim admin bilong app. (The AI service rejected the request. Please try again or contact the app administrator.)',
+  aiInvalidResponse:'AI sevis i givim bekim nogut. Plis traim gen. (The AI service returned an invalid answer. Please try again.)',
+  requestTooLarge:'Askim bilong yu i longpela tumas. Sotim na traim gen. (Your question is too long. Please shorten it and try again.)',
+  invalidRequest:'Askim i no stret. Sekim askim na traim gen. (The request was invalid. Please check your question and try again.)',
+  unknownApiError:'AI sevis i no inap mekim dispela nau. Plis traim gen. (The AI service could not complete your request. Please try again.)'
+ },
+ 'English Only':{
+  pageTitle:'SkulTok - PNG AI Voice Tutor',
+  audioLabel:'Audio',
+  spectrumLabel:'Live microphone audio spectrum',
+  tagline:'AI Voice Tutor for Papua New Guinea',
+  englishOption:'English Only',
+  tokPisinOption:'Tok Pisin Only',
+  autoSpeak:'Auto Speak',
+  clearChat:'Clear chat',
+  clearTitle:'Clear the conversation',
+  greeting:'Hello! Press the mic or type your question.',
+  listen:'Listen',
+  listening:'Listening',
+  micSpeak:'Press mic to speak',
+  micStop:'Stop recording',
+  micUnsupported:'Your browser does not support the microphone. Try Chrome on Android.',
+  micError:'Microphone error: ',
+  micErrorHelp:' - allow microphone in your browser',
+  questionPlaceholder:'Type your question here...',
+  questionLabel:'Type your question here',
+  send:'Send your message',
+  stopAudio:'Stop audio playback',
+  footer:'Built in Papua New Guinea for AI Builder Cup 2026 | Voice: Web Speech API + Gemini',
+  noResponse:'No response received. Please try again.',
+  connectionError:'Connection failed. Please try again.',
+  clearMessage:'Chat cleared. Press the mic and speak!',
+  aiNotConfigured:'The AI service is not configured. Please contact the app administrator.',
+  aiUnavailable:'The AI service is temporarily unavailable. Please try again shortly.',
+  aiTimedOut:'The AI service timed out. Please try again.',
+  aiUnreachable:'The AI service could not be reached. Check your connection and try again.',
+  aiRejected:'The AI service rejected the request. Please try again or contact the app administrator.',
+  aiInvalidResponse:'The AI service returned an invalid answer. Please try again.',
+  requestTooLarge:'Your question is too long. Please shorten it and try again.',
+  invalidRequest:'The request was invalid. Please check your question and try again.',
+  unknownApiError:'The AI service could not complete your request. Please try again.'
+ },
+ 'Tok Pisin Only':{
+  pageTitle:'SkulTok - AI tisa bilong PNG wantaim voice',
+  audioLabel:'Audio',
+  spectrumLabel:'Lukim mic i kisim toktok',
+  tagline:'AI Tisa bilong Tok Pisin long Papua New Guinea',
+  englishOption:'English tasol',
+  tokPisinOption:'Tok Pisin tasol',
+  autoSpeak:'Mekim em i toktok',
+  clearChat:'Rausim chat',
+  clearTitle:'Rausim toktok bilong chat',
+  greeting:'Halo! Pressim mic o typim askim blo yu.',
+  listen:'Harim',
+  listening:'Harim nau',
+  micSpeak:'Pressim mic long toktok',
+  micStop:'Stopim recording',
+  micUnsupported:'Browser bilong yu i no sapotim mic. Traim Chrome long Android.',
+  micError:'Rong bilong mic: ',
+  micErrorHelp:' - oraitim mic long browser',
+  questionPlaceholder:'Typim askim blo yu hia...',
+  questionLabel:'Typim askim blo yu hia',
+  send:'Sendim askim',
+  stopAudio:'Stopim audio',
+  footer:'Mekim long Papua New Guinea bilong AI Builder Cup 2026 | Voice: Web Speech API + Gemini',
+  noResponse:'Mi no kisim bekim. Plis traim gen.',
+  connectionError:'Connection i bagarap. Plis traim gen.',
+  clearMessage:'Chat i pinis. Pressim mic na toktok!',
+  aiNotConfigured:'AI sevis i no redi. Plis toktok wantaim admin bilong app.',
+  aiUnavailable:'AI sevis i no wok gut nau. Plis traim gen bihain liklik.',
+  aiTimedOut:'AI sevis i kisim longpela taim tumas. Plis traim gen.',
+  aiUnreachable:'Mi no inap go long AI sevis. Sekim intanet na traim gen.',
+  aiRejected:'AI sevis i no kisim request. Plis traim gen o toktok wantaim admin bilong app.',
+  aiInvalidResponse:'AI sevis i givim bekim nogut. Plis traim gen.',
+  requestTooLarge:'Askim bilong yu i longpela tumas. Sotim na traim gen.',
+  invalidRequest:'Askim i no stret. Sekim askim na traim gen.',
+  unknownApiError:'AI sevis i no inap mekim dispela nau. Plis traim gen.'
+ }
+};
+
+function uiText(key){
+ return UI_TEXT[document.getElementById('lang').value][key];
+}
+
+function localizedApiError(status,error){
+ const lowerError=error.toLowerCase();
+ if(lowerError.includes('not configured')){return uiText('aiNotConfigured');}
+ if(status===503){return uiText('aiUnavailable');}
+ if(status===504){return uiText('aiTimedOut');}
+ if(status===413){return uiText('requestTooLarge');}
+ if(status===400){return uiText('invalidRequest');}
+ if(status===502&&lowerError.includes('could not be reached')){return uiText('aiUnreachable');}
+ if(status===502&&lowerError.includes('did not return a text answer')){return uiText('aiInvalidResponse');}
+ if(status===502&&lowerError.includes('rejected the request')){return uiText('aiRejected');}
+ if(status===502){return uiText('aiUnreachable');}
+ return uiText('unknownApiError');
+}
+
+function updateLanguage(){
+ const language=document.getElementById('lang').value;
+ const text=UI_TEXT[language];
+ document.documentElement.lang=language==='Tok Pisin Only'?'tpi':'en';
+ document.title=text.pageTitle;
+ document.getElementById('headerAudioIcon').setAttribute('aria-label',text.audioLabel);
+ document.getElementById('audioSpectrum').setAttribute('aria-label',text.spectrumLabel);
+ document.getElementById('tagline').textContent=text.tagline;
+ document.getElementById('lang').options[1].textContent=text.englishOption;
+ document.getElementById('lang').options[2].textContent=text.tokPisinOption;
+ document.getElementById('autoSpeakText').textContent=text.autoSpeak;
+ const clearButton=document.getElementById('clearChatButton');
+ clearButton.textContent=text.clearChat;
+ clearButton.title=text.clearTitle;
+ const greeting=document.getElementById('greetingText');
+ if(greeting){greeting.textContent=text.greeting;}
+ const clearedMessage=document.querySelector('#chat [data-i18n="clearMessage"]');
+ if(clearedMessage){clearedMessage.textContent=text.clearMessage;}
+ document.getElementById('audioVisualizerLabel').textContent=text.listening;
+ const question=document.getElementById('q');
+ question.placeholder=text.questionPlaceholder;
+ question.setAttribute('aria-label',text.questionLabel);
+ const sendButton=document.getElementById('sendButton');
+ sendButton.setAttribute('aria-label',text.send);
+ sendButton.title=text.send;
+ const stopAudioButton=document.getElementById('stopAudioButton');
+ stopAudioButton.setAttribute('aria-label',text.stopAudio);
+ stopAudioButton.title=text.stopAudio;
+ document.getElementById('footer').textContent=text.footer;
+ document.querySelectorAll('.speak-btn span').forEach(span=>span.textContent=text.listen);
+ document.querySelectorAll('.speak-btn').forEach(button=>{
+  button.setAttribute('aria-label',text.listen);
+  button.title=text.listen;
+ });
+ setRecordingButton(isRecording);
+}
+
+document.getElementById('lang').addEventListener('change',updateLanguage);
+
 let recognition;
 let isRecording=false;
-let lastReply="";
 let recognizedTranscript="";
 let audioStream;
 let audioContext;
 let analyser;
 let spectrumFrame;
+let speechVoices=[];
+updateLanguage();
 
 // Check speech support
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -140,15 +325,15 @@ if(SpeechRecognition){
    recognizedTranscript=Array.from(e.results).map(result=>result[0].transcript).join(' ').trim();
    document.getElementById('q').value=recognizedTranscript;
  }
- recognition.onerror=(e)=>{recognizedTranscript="";alert('Mic error: '+e.error+' - allow microphone in browser');isRecording=false;setRecordingButton(false);stopAudioVisualizer();}
+ recognition.onerror=(e)=>{recognizedTranscript="";alert(uiText('micError')+e.error+uiText('micErrorHelp'));isRecording=false;setRecordingButton(false);stopAudioVisualizer();}
 }
 
 function setRecordingButton(recording){
  const mic=document.getElementById('mic');
  mic.classList.toggle('recording',recording);
  mic.setAttribute('aria-pressed',String(recording));
- mic.setAttribute('aria-label',recording?'Stop voice recording':'Start voice recording');
- mic.title=recording?'Stop voice recording':'Start voice recording';
+ mic.setAttribute('aria-label',recording?uiText('micStop'):uiText('micSpeak'));
+ mic.title=recording?uiText('micStop'):uiText('micSpeak');
 }
 
 async function startAudioVisualizer(){
@@ -188,7 +373,7 @@ async function startAudioVisualizer(){
     const barHeight=Math.max(3,value*(height-4));
     const x=index*(barWidth+gap);
     const y=(height-barHeight)/2;
-    canvasContext.fillStyle=`hsl(${142-value*28} 70% ${38+value*12}%)`;
+    canvasContext.fillStyle=index%2===0?'#b5122f':'#ffce00';
     canvasContext.beginPath();
     canvasContext.roundRect(x,y,barWidth,barHeight,barWidth/2);
     canvasContext.fill();
@@ -212,7 +397,7 @@ function stopAudioVisualizer(){
 }
 
 async function toggleMic(){
- if(!recognition){alert('Your browser no support mic. Use Chrome on Android.');return;}
+ if(!recognition){alert(uiText('micUnsupported'));return;}
  if(isRecording){recognition.stop();stopAudioVisualizer();}
  else{
   await startAudioVisualizer();
@@ -221,18 +406,58 @@ async function toggleMic(){
  }
 }
 
+function loadSpeechVoices(){speechVoices=window.speechSynthesis.getVoices();}
+if('speechSynthesis' in window){
+ window.speechSynthesis.onvoiceschanged=loadSpeechVoices;
+ loadSpeechVoices();
+}
+
 function speakText(btnOrText){
- let text = typeof btnOrText === 'string'? btnOrText : btnOrText.parentElement.innerText.replace('Harim / Listen','');
+ let text=typeof btnOrText==='string'?btnOrText:'';
+ if(typeof btnOrText!=='string'){
+  const message=btnOrText.parentElement.cloneNode(true);
+  message.querySelector('.speak-btn')?.remove();
+  text=message.textContent.trim();
+ }
  if('speechSynthesis' in window){
-   window.speechSynthesis.cancel();
-   let utter = new SpeechSynthesisUtterance(text);
-   utter.lang = document.getElementById('lang').value.includes('Tok Pisin')? 'en-PG' : 'en-US';
+  const language=document.getElementById('lang').value;
+  const speakTokPisin=language!=='English Only';
+  const voices=speechVoices.length?speechVoices:window.speechSynthesis.getVoices();
+  const tokPisinVoice=voices.find(item=>item.lang.toLowerCase().startsWith('en-au'))
+   || voices.find(item=>item.lang.toLowerCase().startsWith('en-nz'));
+  const englishVoice=voices.find(item=>item.lang.toLowerCase().startsWith('en-us'))
+   || voices.find(item=>item.lang.toLowerCase().startsWith('en-au'))
+   || voices.find(item=>item.lang.toLowerCase().startsWith('en-gb'))
+   || voices[0];
+  let segments=[{text,tokPisin:speakTokPisin}];
+  if(language==='English + Tok Pisin'){
+   const translationStart=text.indexOf(' (');
+   if(translationStart!==-1){
+    segments=[
+     {text:text.slice(0,translationStart),tokPisin:true},
+     {text:text.slice(translationStart),tokPisin:false}
+    ];
+   }
+  }
+
+  window.speechSynthesis.cancel();
+  for(const segment of segments){
+   if(!segment.text){continue;}
+   const utter=new SpeechSynthesisUtterance(segment.text);
+   const voice=segment.tokPisin?tokPisinVoice:englishVoice;
+   if(voice){utter.voice=voice;}
+   utter.lang=segment.tokPisin
+    ? (tokPisinVoice?.lang||'en-AU')
+    : (englishVoice?.lang||'en-US');
    utter.rate=0.9;
+   utter.pitch=1.0;
    window.speechSynthesis.speak(utter);
-   lastReply=text;
+  }
  }
 }
-function stopSpeaking(){window.speechSynthesis.cancel();}
+function stopSpeaking(){
+ if('speechSynthesis' in window){window.speechSynthesis.cancel();}
+}
 
 function appendMessage(text, role, speakable=false){
  const chat=document.getElementById('chat');
@@ -244,9 +469,10 @@ function appendMessage(text, role, speakable=false){
   const button=document.createElement('button');
   button.className='speak-btn';
   button.type='button';
-  button.setAttribute('aria-label','Listen to response');
-  button.title='Play this response aloud';
-  button.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path></svg><span>Harim / Listen</span>';
+  button.setAttribute('aria-label',uiText('listen'));
+  button.title=uiText('listen');
+  button.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path></svg><span></span>';
+  button.querySelector('span').textContent=uiText('listen');
   button.addEventListener('click',()=>speakText(text));
   message.append(document.createElement('br'),button);
  }
@@ -265,12 +491,12 @@ async function ask(){
  try{
   let res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,grade,lang})});
   let data=await res.json();
-  if(!res.ok){throw new Error(data.error||'Chat request failed');}
-  appendMessage(data.reply||'No response received. Please try again.','bot',true);
+  if(!res.ok){throw new Error(localizedApiError(res.status,typeof data.error==='string'?data.error:''));}
+  appendMessage(data.reply||uiText('noResponse'),'bot',true);
   if(document.getElementById('autoSpeak').checked){speakText(data.reply);}
- }catch(e){appendMessage('Sori, connection bagarap. Try gen.','bot');}
+ }catch(e){appendMessage(e instanceof Error?e.message:uiText('connectionError'),'bot');}
 }
-function clearChat(){stopSpeaking();document.getElementById('chat').innerHTML='<div class="msg bot">Chat cleared. Press <svg class="inline-mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"></rect><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8"></path></svg> na toktok!</div>';}
+function clearChat(){stopSpeaking();const message=document.createElement('div');message.className='msg bot';message.dataset.i18n='clearMessage';message.textContent=uiText('clearMessage');document.getElementById('chat').replaceChildren(message);}
 </script>
 </body>
 </html>
