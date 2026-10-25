@@ -139,23 +139,32 @@ def local_solver(question, language):
     return f"{tok_pisin_answer} (The answer is {answer_text}.)"
 
 def request_openai_compatible(url, api_key, model, grade, language, question):
+    request_body = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": SYSTEM},
+            {
+                "role": "user",
+                "content": (
+                    f"Grade: {grade}\nLanguage: {language}\nQuestion: {question}"
+                ),
+            },
+        ],
+        "temperature": 0.7,
+        "max_tokens": 250,
+    }
+    if url == GROQ_URL and model.startswith("openai/gpt-oss-"):
+        request_body.pop("max_tokens")
+        request_body.update({
+            "max_completion_tokens": 1024,
+            "reasoning_effort": "low",
+            "include_reasoning": False,
+        })
+
     response = requests.post(
         url,
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        json={
-            "model": model,
-            "messages": [
-                {"role": "system", "content": SYSTEM},
-                {
-                    "role": "user",
-                    "content": (
-                        f"Grade: {grade}\nLanguage: {language}\nQuestion: {question}"
-                    ),
-                },
-            ],
-            "temperature": 0.7,
-            "max_tokens": 250,
-        },
+        json=request_body,
         timeout=GEMINI_TIMEOUT,
     )
     response.raise_for_status()
@@ -165,6 +174,16 @@ def request_openai_compatible(url, api_key, model, grade, language, question):
     message = choice.get("message") if isinstance(choice, dict) else None
     text = message.get("content") if isinstance(message, dict) else None
     if not isinstance(text, str) or not text.strip():
+        app.logger.warning(
+            "Provider returned no usable text (status=%s, finish_reason=%s, "
+            "message_fields=%s, reasoning_length=%s)",
+            response.status_code,
+            choice.get("finish_reason") if isinstance(choice, dict) else None,
+            sorted(message.keys()) if isinstance(message, dict) else [],
+            len(message["reasoning"])
+            if isinstance(message, dict) and isinstance(message.get("reasoning"), str)
+            else 0,
+        )
         raise ValueError("Provider returned no usable text")
     return text.strip()
 

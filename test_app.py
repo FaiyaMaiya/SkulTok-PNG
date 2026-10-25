@@ -291,6 +291,10 @@ class ChatEndpointTests(unittest.TestCase):
         self.assertEqual(post.call_args.kwargs["headers"]["Authorization"], "Bearer groq-test-key")
         request_body = post.call_args.kwargs["json"]
         self.assertEqual(request_body["model"], "openai/gpt-oss-20b")
+        self.assertEqual(request_body["max_completion_tokens"], 1024)
+        self.assertEqual(request_body["reasoning_effort"], "low")
+        self.assertFalse(request_body["include_reasoning"])
+        self.assertNotIn("max_tokens", request_body)
         self.assertEqual(request_body["messages"][0]["content"], skultok.SYSTEM)
         self.assertIn("Grade: Grade 7\nLanguage: English Only", request_body["messages"][1]["content"])
 
@@ -337,6 +341,40 @@ class ChatEndpointTests(unittest.TestCase):
             post.call_args_list[1].kwargs["json"]["model"],
             "google/gemma-4-31b-it:free",
         )
+
+    def test_falls_back_when_groq_returns_reasoning_without_answer_text(self):
+        groq_response = gemini_response(200, {
+            "choices": [{
+                "message": {
+                    "content": "",
+                    "reasoning": "private reasoning must not be logged",
+                },
+                "finish_reason": "length",
+            }]
+        })
+        with (
+            patch.dict(os.environ, {
+                "GROQ_API_KEY": "groq-test-key",
+                "OPENROUTER_API_KEY": "openrouter-test-key",
+            }),
+            patch.object(skultok.requests, "post", side_effect=[
+                groq_response,
+                compatible_response(200, "OpenRouter answer"),
+            ]) as post,
+            self.assertLogs(skultok.app.logger, level="WARNING") as logs,
+        ):
+            response = self.client.post(
+                "/api/chat", json={"message": "Explain fractions"}
+            )
+
+        self.assertEqual(response.json, {"reply": "OpenRouter answer"})
+        self.assertEqual(post.call_count, 2)
+        self.assertTrue(any("finish_reason=length" in log for log in logs.output))
+        self.assertTrue(any(
+            f"reasoning_length={len('private reasoning must not be logged')}" in log
+            for log in logs.output
+        ))
+        self.assertNotIn("private reasoning must not be logged", "\n".join(logs.output))
 
     def test_falls_back_to_gemini_after_openai_compatible_providers_fail(self):
         with (
