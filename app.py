@@ -3,6 +3,7 @@ import time
 import requests
 from flask import Flask, request, jsonify, send_from_directory
 from dotenv import load_dotenv
+from werkzeug.exceptions import HTTPException, InternalServerError
 
 load_dotenv()
 app = Flask(__name__, static_folder=None)
@@ -41,9 +42,30 @@ def home():
 def favicon():
     return send_from_directory(app.root_path, "favicon.svg", mimetype="image/svg+xml")
 
-@app.errorhandler(413)
-def request_too_large(_error):
-    return jsonify({"error": "Request body is too large."}), _error.code
+def is_api_request():
+    return request.path == "/api" or request.path.startswith("/api/")
+
+@app.errorhandler(HTTPException)
+def handle_http_exception(error):
+    if is_api_request():
+        message = (
+            "Request body is too large."
+            if error.code == 413
+            else error.description
+        )
+        return jsonify({"error": message}), error.code
+    return error
+
+@app.errorhandler(Exception)
+def handle_unexpected_exception(error):
+    if not is_api_request():
+        app.log_exception((type(error), error, error.__traceback__))
+        return InternalServerError()
+    app.logger.error(
+        "Unhandled API error",
+        exc_info=(type(error), error, error.__traceback__),
+    )
+    return jsonify({"error": "An unexpected server error occurred. Please try again."}), 500
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
