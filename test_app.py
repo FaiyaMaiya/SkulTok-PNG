@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest.mock import patch
 
@@ -13,12 +14,26 @@ def gemini_response(status_code, body=None):
     return response
 
 
+def compatible_response(status_code, content=None):
+    return gemini_response(status_code, {
+        "choices": [{"message": {"content": content}}]
+    })
+
+
 class ChatEndpointTests(unittest.TestCase):
     def setUp(self):
         self.client = skultok.app.test_client()
         self.api_key_patcher = patch.object(skultok, "API_KEY", "test-api-key")
         self.api_key_patcher.start()
         self.addCleanup(self.api_key_patcher.stop)
+        self.provider_env_patcher = patch.dict(os.environ, {
+            "GROQ_API_KEY": "",
+            "OPENROUTER_API_KEY": "",
+            "OPENROUTER_KEY": "",
+            "GOOGLE_API_KEY": "",
+        })
+        self.provider_env_patcher.start()
+        self.addCleanup(self.provider_env_patcher.stop)
 
     def test_health_route_returns_ok(self):
         response = self.client.get("/health")
@@ -47,7 +62,7 @@ class ChatEndpointTests(unittest.TestCase):
             ]) as post,
             patch.object(skultok.time, "sleep") as sleep,
         ):
-            response = self.client.post("/api/chat", json={"message": "Hello"})
+            response = self.client.post("/api/chat", json={"message": "Explain fractions"})
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json, {"reply": "Hello"})
@@ -99,7 +114,7 @@ class ChatEndpointTests(unittest.TestCase):
             patch.object(skultok.requests, "post", return_value=gemini_response(503)) as post,
             patch.object(skultok.time, "sleep"),
         ):
-            response = self.client.post("/api/chat", json={"message": "Hello"})
+            response = self.client.post("/api/chat", json={"message": "Explain fractions"})
 
         self.assertEqual(response.status_code, 503)
         self.assertIn("AI sevis i no wok gut nau", response.json["error"])
@@ -116,7 +131,7 @@ class ChatEndpointTests(unittest.TestCase):
             ]) as post,
             patch.object(skultok.time, "sleep") as sleep,
         ):
-            response = self.client.post("/api/chat", json={"message": "Hello"})
+            response = self.client.post("/api/chat", json={"message": "Explain fractions"})
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json, {"reply": "Hello"})
@@ -128,7 +143,7 @@ class ChatEndpointTests(unittest.TestCase):
             "error": {"message": "Do not expose upstream details to the client"}
         })
         with patch.object(skultok.requests, "post", return_value=bad_request):
-            response = self.client.post("/api/chat", json={"message": "Hello"})
+            response = self.client.post("/api/chat", json={"message": "Explain fractions"})
 
         self.assertEqual(response.status_code, 502)
         self.assertIn("HTTP 400", response.json["error"])
@@ -139,7 +154,7 @@ class ChatEndpointTests(unittest.TestCase):
         with patch.object(
             skultok.requests, "post", return_value=gemini_response(200, {})
         ):
-            response = self.client.post("/api/chat", json={"message": "Hello"})
+            response = self.client.post("/api/chat", json={"message": "Explain fractions"})
 
         self.assertEqual(response.status_code, 502)
         self.assertIn("did not return a text answer", response.json["error"])
@@ -154,7 +169,7 @@ class ChatEndpointTests(unittest.TestCase):
             ]) as post,
             patch.object(skultok.time, "sleep") as sleep,
         ):
-            response = self.client.post("/api/chat", json={"message": "Hello"})
+            response = self.client.post("/api/chat", json={"message": "Explain fractions"})
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(post.call_count, 2)
@@ -165,7 +180,7 @@ class ChatEndpointTests(unittest.TestCase):
             patch.object(skultok.requests, "post", side_effect=requests.Timeout) as post,
             patch.object(skultok.time, "sleep") as sleep,
         ):
-            response = self.client.post("/api/chat", json={"message": "Hello"})
+            response = self.client.post("/api/chat", json={"message": "Explain fractions"})
 
         self.assertEqual(response.status_code, 504)
         self.assertIn("AI service timed out", response.json["error"])
@@ -196,7 +211,7 @@ class ChatEndpointTests(unittest.TestCase):
         with patch.object(
             skultok.requests, "post", side_effect=RuntimeError("sensitive detail")
         ):
-            response = self.client.post("/api/chat", json={"message": "Hello"})
+            response = self.client.post("/api/chat", json={"message": "Explain fractions"})
 
         self.assertEqual(response.status_code, 500)
         self.assertEqual(response.mimetype, "application/json")
@@ -216,6 +231,116 @@ class ChatEndpointTests(unittest.TestCase):
         self.assertEqual(method_not_allowed.status_code, 405)
         self.assertEqual(method_not_allowed.mimetype, "application/json")
         self.assertIn("error", method_not_allowed.json)
+
+    def test_local_solver_answers_greetings_and_arithmetic_without_provider(self):
+        with patch.object(skultok.requests, "post") as post:
+            greeting = self.client.post(
+                "/api/chat",
+                json={"message": "hello", "lang": "English Only"},
+            )
+            arithmetic = self.client.post(
+                "/api/chat",
+                json={"message": "(2 + 3) * 4", "lang": "Tok Pisin Only"},
+            )
+
+        self.assertEqual(greeting.json["reply"], skultok.local_solver(
+            "hello", "English Only"
+        ))
+        self.assertEqual(arithmetic.json, {"reply": "Ansa em 20."})
+        post.assert_not_called()
+        self.assertIsNone(skultok.local_solver("__import__('os')", "English Only"))
+
+    def test_returns_json_when_no_provider_is_configured(self):
+        with (
+            patch.object(skultok, "API_KEY", ""),
+            patch.dict(os.environ, {
+                "GROQ_API_KEY": "",
+                "OPENROUTER_API_KEY": "",
+                "OPENROUTER_KEY": "",
+                "GOOGLE_API_KEY": "",
+            }),
+        ):
+            response = self.client.post(
+                "/api/chat", json={"message": "Explain fractions"}
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.mimetype, "application/json")
+        self.assertEqual(response.json, {"error": "AI service is not configured."})
+
+    def test_groq_provider_is_used_first_with_existing_tutor_prompt(self):
+        with (
+            patch.dict(os.environ, {"GROQ_API_KEY": "groq-test-key"}),
+            patch.object(
+                skultok.requests,
+                "post",
+                return_value=compatible_response(200, "Groq answer"),
+            ) as post,
+        ):
+            response = self.client.post(
+                "/api/chat",
+                json={
+                    "message": "Explain fractions",
+                    "grade": "Grade 7",
+                    "lang": "English Only",
+                },
+            )
+
+        self.assertEqual(response.json, {"reply": "Groq answer"})
+        self.assertEqual(post.call_args.args[0], skultok.GROQ_URL)
+        self.assertEqual(post.call_args.kwargs["headers"]["Authorization"], "Bearer groq-test-key")
+        request_body = post.call_args.kwargs["json"]
+        self.assertEqual(request_body["model"], "llama-3.1-8b-instant")
+        self.assertEqual(request_body["messages"][0]["content"], skultok.SYSTEM)
+        self.assertIn("Grade: Grade 7\nLanguage: English Only", request_body["messages"][1]["content"])
+
+    def test_falls_back_from_groq_to_openrouter(self):
+        with (
+            patch.dict(os.environ, {
+                "GROQ_API_KEY": "groq-test-key",
+                "OPENROUTER_API_KEY": "openrouter-test-key",
+            }),
+            patch.object(skultok.requests, "post", side_effect=[
+                compatible_response(503),
+                compatible_response(200, "OpenRouter answer"),
+            ]) as post,
+        ):
+            response = self.client.post(
+                "/api/chat", json={"message": "Explain fractions"}
+            )
+
+        self.assertEqual(response.json, {"reply": "OpenRouter answer"})
+        self.assertEqual(post.call_count, 2)
+        self.assertEqual(post.call_args_list[0].args[0], skultok.GROQ_URL)
+        self.assertEqual(post.call_args_list[1].args[0], skultok.OPENROUTER_URL)
+        self.assertEqual(
+            post.call_args_list[1].kwargs["json"]["model"],
+            "meta-llama/llama-3.3-70b-instruct:free",
+        )
+
+    def test_falls_back_to_gemini_after_openai_compatible_providers_fail(self):
+        with (
+            patch.dict(os.environ, {
+                "GROQ_API_KEY": "groq-test-key",
+                "OPENROUTER_API_KEY": "openrouter-test-key",
+            }),
+            patch.object(skultok.requests, "post", side_effect=[
+                compatible_response(503),
+                compatible_response(503),
+                gemini_response(200, {
+                    "candidates": [{
+                        "content": {"parts": [{"text": "Gemini fallback"}]}
+                    }]
+                }),
+            ]) as post,
+        ):
+            response = self.client.post(
+                "/api/chat", json={"message": "Explain fractions"}
+            )
+
+        self.assertEqual(response.json, {"reply": "Gemini fallback"})
+        self.assertEqual(post.call_count, 3)
+        self.assertEqual(post.call_args_list[2].args[0], skultok.MODEL_URL)
 
 if __name__ == "__main__":
     unittest.main()

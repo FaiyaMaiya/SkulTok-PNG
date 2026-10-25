@@ -1,4 +1,7 @@
+import ast
+import math
 import os
+import re
 import time
 import requests
 from flask import Flask, request, jsonify, send_from_directory
@@ -33,6 +36,9 @@ GEMINI_MAX_ATTEMPTS = 3
 GEMINI_RETRY_DELAYS = (1, 2)
 GEMINI_TIMEOUT = (3, 12)
 GEMINI_RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+MATH_EXPRESSION = re.compile(r"[\d\s.+\-*/()%]+\Z")
 
 @app.route("/")
 def home():
@@ -67,6 +73,101 @@ def handle_unexpected_exception(error):
     )
     return jsonify({"error": "An unexpected server error occurred. Please try again."}), 500
 
+def evaluate_math_expression(node):
+    if isinstance(node, ast.Expression):
+        return evaluate_math_expression(node.body)
+    if isinstance(node, ast.Constant) and type(node.value) in {int, float}:
+        if len(str(node.value)) > 12:
+            raise ValueError("Number is too large")
+        return node.value
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+        value = evaluate_math_expression(node.operand)
+        result = value if isinstance(node.op, ast.UAdd) else -value
+    elif isinstance(node, ast.BinOp):
+        left = evaluate_math_expression(node.left)
+        right = evaluate_math_expression(node.right)
+        if isinstance(node.op, ast.Add):
+            result = left + right
+        elif isinstance(node.op, ast.Sub):
+            result = left - right
+        elif isinstance(node.op, ast.Mult):
+            result = left * right
+        elif isinstance(node.op, ast.Div):
+            result = left / right
+        elif isinstance(node.op, ast.FloorDiv):
+            result = left // right
+        elif isinstance(node.op, ast.Mod):
+            result = left % right
+        else:
+            raise ValueError("Unsupported math operator")
+    else:
+        raise ValueError("Unsupported math expression")
+
+    if not math.isfinite(result) or abs(result) > 1_000_000_000_000:
+        raise ValueError("Math result is out of range")
+    return result
+
+def local_solver(question, language):
+    normalized = question.casefold().strip()
+    tok_pisin_greeting = (
+        "Gude ah! Mi SkulTok PG, tisa bilong Maths, Science na English. "
+        "Yu laik save long wanem?"
+    )
+    english_greeting = (
+        "Hello! I'm SkulTok PG, your tutor for Maths, Science, and English. "
+        "What would you like to learn?"
+    )
+    if normalized in {"helo", "hi", "hello", "gude", "gut moning", "apinun"}:
+        if language == "English Only":
+            return english_greeting
+        if language == "Tok Pisin Only":
+            return tok_pisin_greeting
+        return f"{tok_pisin_greeting} ({english_greeting})"
+
+    if len(question) > 100 or not MATH_EXPRESSION.fullmatch(question):
+        return None
+    try:
+        answer = evaluate_math_expression(ast.parse(question, mode="eval"))
+    except (SyntaxError, ValueError, ZeroDivisionError, OverflowError):
+        return None
+    answer_text = str(int(answer)) if isinstance(answer, float) and answer.is_integer() else str(answer)
+    if language == "English Only":
+        return f"The answer is {answer_text}."
+    tok_pisin_answer = f"Ansa em {answer_text}."
+    if language == "Tok Pisin Only":
+        return tok_pisin_answer
+    return f"{tok_pisin_answer} (The answer is {answer_text}.)"
+
+def request_openai_compatible(url, api_key, model, grade, language, question):
+    response = requests.post(
+        url,
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={
+            "model": model,
+            "messages": [
+                {"role": "system", "content": SYSTEM},
+                {
+                    "role": "user",
+                    "content": (
+                        f"Grade: {grade}\nLanguage: {language}\nQuestion: {question}"
+                    ),
+                },
+            ],
+            "temperature": 0.7,
+            "max_tokens": 250,
+        },
+        timeout=GEMINI_TIMEOUT,
+    )
+    response.raise_for_status()
+    result = response.json()
+    choices = result.get("choices") if isinstance(result, dict) else None
+    choice = choices[0] if isinstance(choices, list) and choices else None
+    message = choice.get("message") if isinstance(choice, dict) else None
+    text = message.get("content") if isinstance(message, dict) else None
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("Provider returned no usable text")
+    return text.strip()
+
 @app.route("/api/chat", methods=["POST"])
 def chat():
     data = request.get_json(silent=True)
@@ -86,8 +187,49 @@ def chat():
         return jsonify({"error": "Grade and language must be strings."}), 400
     if grade not in GRADES or lang not in LANGUAGES:
         return jsonify({"error": "Select a valid grade and language."}), 400
-    if not API_KEY:
-        app.logger.error("GEMINI_API_KEY is not configured")
+    local_answer = local_solver(user_msg, lang)
+    if local_answer:
+        return jsonify({"reply": local_answer})
+
+    providers = (
+        (
+            "Groq",
+            os.getenv("GROQ_API_KEY"),
+            GROQ_URL,
+            os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"),
+        ),
+        (
+            "OpenRouter",
+            os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_KEY"),
+            OPENROUTER_URL,
+            os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free"),
+        ),
+    )
+    attempted_provider = False
+    for provider_name, provider_key, provider_url, provider_model in providers:
+        if not provider_key:
+            continue
+        attempted_provider = True
+        try:
+            text = request_openai_compatible(
+                provider_url, provider_key, provider_model, grade, lang, user_msg
+            )
+            return jsonify({"reply": text})
+        except (requests.RequestException, KeyError, IndexError, TypeError, ValueError):
+            app.logger.warning(
+                "%s chat request failed; trying the next provider",
+                provider_name,
+                exc_info=True,
+            )
+
+    gemini_key = API_KEY or os.getenv("GOOGLE_API_KEY")
+    if not gemini_key:
+        if attempted_provider:
+            app.logger.error("Configured chat providers failed and Gemini is not configured")
+            return jsonify({
+                "error": "AI sevis i no wok gut nau. Plis traim gen liklik taim bihain. (The AI service is temporarily unavailable. Please try again shortly.)"
+            }), 503
+        app.logger.error("No AI provider API keys are configured")
         return jsonify({"error": "AI service is not configured."}), 503
 
     payload = {
@@ -95,7 +237,7 @@ def chat():
         "contents": [{"parts": [{"text": f"Grade: {grade}\nLanguage: {lang}\nQuestion: {user_msg}"}]}],
         "generationConfig": {"temperature": 0.7, "maxOutputTokens": 250}
     }
-    headers = {"x-goog-api-key": API_KEY, "Content-Type": "application/json"}
+    headers = {"x-goog-api-key": gemini_key, "Content-Type": "application/json"}
 
     try:
         for attempt in range(GEMINI_MAX_ATTEMPTS):
