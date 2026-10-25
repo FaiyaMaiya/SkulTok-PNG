@@ -13,7 +13,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Set provider keys in a local `.env` file for development: `GROQ_API_KEY` and/or `OPENROUTER_API_KEY` for the Llama providers, with `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) as the final fallback. The app tries configured providers in Groq, OpenRouter, Gemini order. Groq and OpenRouter models can be changed using `GROQ_MODEL` and `OPENROUTER_MODEL`; their defaults are `llama-3.1-8b-instant` and `meta-llama/llama-3.3-70b-instruct:free`. Local greetings and basic arithmetic are answered without an AI provider. Provider availability, model names, and free quotas may change; check each provider's current terms. The `.env` file is ignored by Docker and gcloud deployment contexts; do not copy it into the image or commit it. The app listens on `http://localhost:8080` by default and honors `PORT` when set.
+Set provider keys in a local `.env` file for development: `GROQ_API_KEY` and/or `OPENROUTER_API_KEY` (also accepts `OPENROUTER_KEY`) for the Llama providers, with `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) as the final fallback. The app tries configured providers in Groq, OpenRouter, Gemini order using the `requests` HTTP client; the Groq and OpenAI SDK packages are not required. Groq and OpenRouter models can be changed using `GROQ_MODEL` and `OPENROUTER_MODEL`; their defaults are `llama-3.1-8b-instant` and `meta-llama/llama-3.3-70b-instruct:free`. Local greetings and basic arithmetic are answered without an AI provider. Provider availability, model names, and free quotas may change; check each provider's current terms. The `.env` file is ignored by Docker and gcloud deployment contexts; do not copy it into the image or commit it. The app listens on `http://localhost:8080` by default and honors `PORT` when set.
 
 ## Deploy to Cloud Run
 
@@ -32,7 +32,7 @@ gcloud run deploy skultok `
 
 Choose the region appropriate for your users and data requirements. Remove `--allow-unauthenticated` if the service should require authentication. The app defaults to the stable Gemini model `gemini-3.8-flash`; override it with the `GEMINI_MODEL` environment variable if needed for your account or model availability.
 
-For the Groq/OpenRouter fallback chain, configure `GROQ_API_KEY` and/or `OPENROUTER_API_KEY` as secrets/environment variables in the deployment platform. Keep `GEMINI_API_KEY` configured if Gemini should remain the final fallback.
+For the Groq/OpenRouter fallback chain, configure `GROQ_API_KEY` and/or `OPENROUTER_API_KEY` (or `OPENROUTER_KEY`) as secrets/environment variables in the deployment platform. Keep `GEMINI_API_KEY` configured if Gemini should remain the final fallback. Confirm the exact variable names in the deployment platform's environment settings; local `.env` settings are not automatically deployed.
 
 After deployment, test the returned service URL:
 

@@ -294,6 +294,26 @@ class ChatEndpointTests(unittest.TestCase):
         self.assertEqual(request_body["messages"][0]["content"], skultok.SYSTEM)
         self.assertIn("Grade: Grade 7\nLanguage: English Only", request_body["messages"][1]["content"])
 
+    def test_openrouter_key_alias_is_supported(self):
+        with (
+            patch.dict(os.environ, {"OPENROUTER_KEY": "openrouter-test-key"}),
+            patch.object(
+                skultok.requests,
+                "post",
+                return_value=compatible_response(200, "OpenRouter answer"),
+            ) as post,
+        ):
+            response = self.client.post(
+                "/api/chat", json={"message": "Explain fractions"}
+            )
+
+        self.assertEqual(response.json, {"reply": "OpenRouter answer"})
+        self.assertEqual(post.call_args.args[0], skultok.OPENROUTER_URL)
+        self.assertEqual(
+            post.call_args.kwargs["headers"]["Authorization"],
+            "Bearer openrouter-test-key",
+        )
+
     def test_falls_back_from_groq_to_openrouter(self):
         with (
             patch.dict(os.environ, {
