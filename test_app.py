@@ -290,7 +290,7 @@ class ChatEndpointTests(unittest.TestCase):
         self.assertEqual(post.call_args.args[0], skultok.GROQ_URL)
         self.assertEqual(post.call_args.kwargs["headers"]["Authorization"], "Bearer groq-test-key")
         request_body = post.call_args.kwargs["json"]
-        self.assertEqual(request_body["model"], "llama-3.1-8b-instant")
+        self.assertEqual(request_body["model"], "openai/gpt-oss-20b")
         self.assertEqual(request_body["messages"][0]["content"], skultok.SYSTEM)
         self.assertIn("Grade: Grade 7\nLanguage: English Only", request_body["messages"][1]["content"])
 
@@ -335,7 +335,7 @@ class ChatEndpointTests(unittest.TestCase):
         self.assertEqual(post.call_args_list[1].args[0], skultok.OPENROUTER_URL)
         self.assertEqual(
             post.call_args_list[1].kwargs["json"]["model"],
-            "meta-llama/llama-3.3-70b-instruct:free",
+            "google/gemma-4-31b-it:free",
         )
 
     def test_falls_back_to_gemini_after_openai_compatible_providers_fail(self):
