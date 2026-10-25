@@ -107,6 +107,11 @@ class ChatEndpointTests(unittest.TestCase):
         self.assertIn("{text:text.slice(translationStart),tokPisin:false}", html)
         self.assertIn("item.lang.toLowerCase().startsWith('en-au')", html)
         self.assertIn("item.lang.toLowerCase().startsWith('en-nz')", html)
+        self.assertIn("recognition.lang='en-AU';", html)
+        self.assertIn("recognition.lang=document.getElementById('lang').value==='English Only'", html)
+        self.assertIn("recognition.start();\n   startAudioVisualizer();", html)
+        self.assertNotIn("await startAudioVisualizer();", html)
+        self.assertIn("lang})", html)
         self.assertIn('onclick="speakText(this)"', html)
 
     def test_returns_service_unavailable_after_third_503(self):

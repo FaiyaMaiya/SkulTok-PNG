@@ -310,7 +310,7 @@ if(SpeechRecognition){
  recognition = new SpeechRecognition();
  recognition.continuous=false;
  recognition.interimResults=false;
- recognition.lang='en-PG'; // works for Tok Pisin mix too
+ recognition.lang='en-AU';
  recognition.onstart=()=>{isRecording=true;recognizedTranscript="";setRecordingButton(true);}
  recognition.onend=()=>{
   isRecording=false;
@@ -401,9 +401,17 @@ async function toggleMic(){
  if(!recognition){alert(uiText('micUnsupported'));return;}
  if(isRecording){recognition.stop();stopAudioVisualizer();}
  else{
-  await startAudioVisualizer();
-  try{recognition.start();}
-  catch(error){stopAudioVisualizer();console.error('Could not start voice recording:',error);}
+  recognition.lang=document.getElementById('lang').value==='English Only'
+   ? 'en-US'
+   : 'en-AU';
+  try{
+   recognition.start();
+   startAudioVisualizer();
+  }catch(error){
+   stopAudioVisualizer();
+   console.error('Could not start voice recording:',error);
+   alert(uiText('micError')+(error instanceof Error?error.message:'unknown')+uiText('micErrorHelp'));
+  }
  }
 }
 
