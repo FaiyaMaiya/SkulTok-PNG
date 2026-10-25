@@ -1,4 +1,5 @@
 import ast
+import io
 import math
 import os
 import re
@@ -10,7 +11,7 @@ from werkzeug.exceptions import HTTPException, InternalServerError
 
 load_dotenv()
 app = Flask(__name__, static_folder=None)
-app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 12 * 1024 * 1024
 
 API_KEY = os.getenv("GEMINI_API_KEY")
 MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
@@ -37,7 +38,21 @@ GEMINI_RETRY_DELAYS = (1, 2)
 GEMINI_TIMEOUT = (3, 12)
 GEMINI_RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_TRANSCRIPTION_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+MAX_AUDIO_UPLOAD_BYTES = 10 * 1024 * 1024
+MAX_JSON_REQUEST_BYTES = 16 * 1024
+AUDIO_MIME_TYPES = {
+    "audio/aac": "aac",
+    "audio/flac": "flac",
+    "audio/mp4": "mp4",
+    "audio/mpeg": "mp3",
+    "audio/ogg": "ogg",
+    "audio/wav": "wav",
+    "audio/webm": "webm",
+    "audio/x-m4a": "m4a",
+}
+TRANSCRIPTION_TIMEOUT = (3, 45)
 MATH_EXPRESSION = re.compile(r"[\d\s.+\-*/()%]+\Z")
 
 @app.route("/")
@@ -189,6 +204,8 @@ def request_openai_compatible(url, api_key, model, grade, language, question):
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
+    if request.content_length and request.content_length > MAX_JSON_REQUEST_BYTES:
+        return jsonify({"error": "Request body is too large."}), 413
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return jsonify({"error": "Request body must be a JSON object."}), 400
@@ -336,6 +353,78 @@ def chat():
         return jsonify({
             "error": "Mi no inap kisim bekim nau. Plis traim gen. (The AI service returned an invalid response. Please try again.)"
         }), 502
+
+@app.route("/api/transcribe", methods=["POST"])
+def transcribe():
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        return jsonify({"error": "Voice transcription is not configured."}), 503
+
+    language = request.form.get("lang", "English + Tok Pisin")
+    if language not in LANGUAGES:
+        return jsonify({"error": "Select a valid language."}), 400
+
+    audio_file = request.files.get("audio")
+    if audio_file is None:
+        return jsonify({"error": "No audio recording was received."}), 400
+
+    mime_type = audio_file.mimetype.lower().split(";", 1)[0]
+    extension = AUDIO_MIME_TYPES.get(mime_type)
+    if extension is None:
+        return jsonify({"error": "The audio format is not supported."}), 415
+
+    audio_data = audio_file.stream.read(MAX_AUDIO_UPLOAD_BYTES + 1)
+    if not audio_data:
+        return jsonify({"error": "The audio recording is empty."}), 400
+    if len(audio_data) > MAX_AUDIO_UPLOAD_BYTES:
+        return jsonify({"error": "The audio recording is too large."}), 413
+
+    form_data = {
+        "model": "whisper-large-v3-turbo",
+        "response_format": "json",
+        "temperature": "0",
+        "prompt": "Transcribe accurately; speech may be Tok Pisin, English, or both.",
+    }
+    if language == "English Only":
+        form_data["language"] = "en"
+
+    try:
+        response = requests.post(
+            GROQ_TRANSCRIPTION_URL,
+            headers={"Authorization": f"Bearer {api_key}"},
+            data=form_data,
+            files={
+                "file": (
+                    f"voice.{extension}",
+                    io.BytesIO(audio_data),
+                    mime_type,
+                )
+            },
+            timeout=TRANSCRIPTION_TIMEOUT,
+        )
+        response.raise_for_status()
+        result = response.json()
+        transcript = result.get("text") if isinstance(result, dict) else None
+        if not isinstance(transcript, str) or not transcript.strip():
+            app.logger.warning("Speech transcription returned no usable text")
+            return jsonify({"error": "No speech was recognized. Please try again."}), 422
+        return jsonify({"transcript": transcript.strip()})
+    except requests.Timeout:
+        app.logger.warning("Speech transcription request timed out")
+        return jsonify({"error": "Speech transcription timed out. Please try again."}), 504
+    except requests.ConnectionError:
+        app.logger.exception("Could not connect to speech transcription service")
+        return jsonify({"error": "Speech transcription service could not be reached."}), 502
+    except requests.HTTPError as error:
+        status_code = error.response.status_code if error.response is not None else None
+        if status_code == 429 or (status_code is not None and status_code >= 500):
+            app.logger.warning("Speech transcription service unavailable (HTTP %s)", status_code)
+            return jsonify({"error": "Speech transcription is temporarily unavailable."}), 503
+        app.logger.error("Speech transcription request rejected (HTTP %s)", status_code)
+        return jsonify({"error": "Speech transcription could not process this recording."}), 502
+    except (requests.RequestException, ValueError):
+        app.logger.exception("Speech transcription request failed")
+        return jsonify({"error": "Speech transcription returned an invalid response."}), 502
 
 @app.route("/health")
 def health():

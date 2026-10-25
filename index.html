@@ -32,6 +32,7 @@ select,button{padding:10px;border-radius:8px;border:1px solid var(--border);colo
 .audio-visualizer.active{display:flex}
 .audio-visualizer canvas{display:block;width:100%;height:42px;min-width:0}
 .audio-visualizer-label{flex:none;font-weight:600}
+#voiceStatus{font-size:13px;color:var(--png-black)}
 .icon-btn{font-size:18px;background:#fff;cursor:pointer;min-width:44px}
 .record-btn{display:inline-flex;align-items:center;justify-content:center;min-width:44px;width:44px;height:44px;padding:10px;border:1px solid var(--png-red);border-radius:50%;background:var(--png-red);color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s ease,border-color .15s ease,transform .15s ease}
 .record-btn:hover{background:#8f0e26;border-color:#8f0e26}
@@ -122,6 +123,7 @@ select,button{padding:10px;border-radius:8px;border:1px solid var(--border);colo
 <button id="sendButton" class="icon-btn send" onclick="ask()" aria-label="Send your message" title="Send your message">➤</button>
 <button id="stopAudioButton" class="icon-btn" onclick="stopSpeaking()" aria-label="Stop audio playback" title="Stop audio playback"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"></path><path d="m22 9-6 6m0-6 6 6"></path></svg></button>
 </div>
+<div id="voiceStatus" role="status" aria-live="polite" hidden></div>
 </div>
 </div>
 <div id="footer" class="footer">Built by Miah Communications for Papua New Guinea</div>
@@ -142,9 +144,15 @@ const UI_TEXT={
   listening:'Listening',
   micSpeak:'Pressim mic long toktok (Press mic to speak)',
   micStop:'Stopim recording (Stop recording)',
-  micUnsupported:'Your browser no support mic. Use Chrome on Android.',
-  micError:'Mic error: ',
-  micErrorHelp:' - allow microphone in browser',
+  micUnsupported:'This browser cannot record audio. Update your browser or type your question.',
+  micPermission:'Allow microphone access, then speak.',
+  micTranscribing:'Transcribing your voice note...',
+  micNoSpeech:'No speech was recognized. Please try again.',
+  micFailed:'Voice transcription failed. Please try again or type your question.',
+  micTooLarge:'That recording is too long. Please record a shorter question.',
+  micNotConfigured:'Voice transcription is not configured. Please type your question.',
+  micPermissionDenied:'Microphone access was blocked. Allow microphone access in your browser settings.',
+  micRecording:'Recording... Press the microphone again when you are finished.',
   questionPlaceholder:'Typim askim blo yu hia (Type your question here)...',
   questionLabel:'Typim askim blo yu hia (Type your question here)',
   send:'Sendim askim (Send your message)',
@@ -178,9 +186,15 @@ const UI_TEXT={
   listening:'Listening',
   micSpeak:'Press mic to speak',
   micStop:'Stop recording',
-  micUnsupported:'Your browser does not support the microphone. Try Chrome on Android.',
-  micError:'Microphone error: ',
-  micErrorHelp:' - allow microphone in your browser',
+  micUnsupported:'This browser cannot record audio. Update your browser or type your question.',
+  micPermission:'Allow microphone access, then speak.',
+  micTranscribing:'Transcribing your voice note...',
+  micNoSpeech:'No speech was recognized. Please try again.',
+  micFailed:'Voice transcription failed. Please try again or type your question.',
+  micTooLarge:'That recording is too long. Please record a shorter question.',
+  micNotConfigured:'Voice transcription is not configured. Please type your question.',
+  micPermissionDenied:'Microphone access was blocked. Allow microphone access in your browser settings.',
+  micRecording:'Recording... Press the microphone again when you are finished.',
   questionPlaceholder:'Type your question here...',
   questionLabel:'Type your question here',
   send:'Send your message',
@@ -214,9 +228,15 @@ const UI_TEXT={
   listening:'Harim nau',
   micSpeak:'Pressim mic long toktok',
   micStop:'Stopim recording',
-  micUnsupported:'Browser bilong yu i no sapotim mic. Traim Chrome long Android.',
-  micError:'Rong bilong mic: ',
-  micErrorHelp:' - oraitim mic long browser',
+  micUnsupported:'Browser bilong yu i no inap recordim audio. Apdeitim browser o typim askim bilong yu.',
+  micPermission:'Oraitim access bilong mic, na toktok.',
+  micTranscribing:'Mi wok long senisim toktok bilong yu i kamap long leta...',
+  micNoSpeech:'Mi no harim toktok. Plis traim gen.',
+  micFailed:'Voice transcription i no wok. Plis traim gen o typim askim bilong yu.',
+  micTooLarge:'Recording i longpela tumas. Mekim sotpela askim gen.',
+  micNotConfigured:'Voice transcription i no setap. Plis typim askim bilong yu.',
+  micPermissionDenied:'Browser i tambuim mic. Oraitim mic long browser settings bilong yu.',
+  micRecording:'Mi recordim toktok... Pressim mic gen taim yu pinis.',
   questionPlaceholder:'Typim askim blo yu hia...',
   questionLabel:'Typim askim blo yu hia',
   send:'Sendim askim',
@@ -294,40 +314,17 @@ function updateLanguage(){
 
 document.getElementById('lang').addEventListener('change',updateLanguage);
 
-let recognition;
 let isRecording=false;
-let recognizedTranscript="";
+let isRequestingRecording=false;
+let isProcessingAudio=false;
+let mediaRecorder;
+let recordedChunks=[];
 let audioStream;
 let audioContext;
 let analyser;
 let spectrumFrame;
 let speechVoices=[];
 updateLanguage();
-
-// Check speech support
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-if(SpeechRecognition){
- recognition = new SpeechRecognition();
- recognition.continuous=false;
- recognition.interimResults=false;
- recognition.lang='en-AU';
- recognition.onstart=()=>{isRecording=true;recognizedTranscript="";setRecordingButton(true);}
- recognition.onend=()=>{
-  isRecording=false;
-  setRecordingButton(false);
-  stopAudioVisualizer();
-  if(recognizedTranscript.trim()){
-   document.getElementById('q').value=recognizedTranscript.trim();
-   recognizedTranscript="";
-   ask();
-  }
- }
- recognition.onresult=(e)=>{
-   recognizedTranscript=Array.from(e.results).map(result=>result[0].transcript).join(' ').trim();
-   document.getElementById('q').value=recognizedTranscript;
- }
- recognition.onerror=(e)=>{recognizedTranscript="";alert(uiText('micError')+e.error+uiText('micErrorHelp'));isRecording=false;setRecordingButton(false);stopAudioVisualizer();}
-}
 
 function setRecordingButton(recording){
  const mic=document.getElementById('mic');
@@ -337,15 +334,20 @@ function setRecordingButton(recording){
  mic.title=recording?uiText('micStop'):uiText('micSpeak');
 }
 
-async function startAudioVisualizer(){
+function setVoiceStatus(message){
+ const status=document.getElementById('voiceStatus');
+ status.textContent=message;
+ status.hidden=!message;
+}
+
+async function startAudioVisualizer(stream){
  const visualizer=document.getElementById('audioVisualizer');
  const canvas=document.getElementById('audioSpectrum');
- if(!navigator.mediaDevices?.getUserMedia || !window.AudioContext){return;}
+ if(!window.AudioContext){return;}
 
  try{
-  audioStream=await navigator.mediaDevices.getUserMedia({audio:true});
   audioContext=new AudioContext();
-  const source=audioContext.createMediaStreamSource(audioStream);
+  const source=audioContext.createMediaStreamSource(stream);
   analyser=audioContext.createAnalyser();
   analyser.fftSize=128;
   analyser.smoothingTimeConstant=0.75;
@@ -391,27 +393,113 @@ async function startAudioVisualizer(){
 
 function stopAudioVisualizer(){
  if(spectrumFrame){cancelAnimationFrame(spectrumFrame);spectrumFrame=null;}
- if(audioStream){audioStream.getTracks().forEach(track=>track.stop());audioStream=null;}
  analyser=null;
  if(audioContext){audioContext.close().catch(()=>{});audioContext=null;}
  document.getElementById('audioVisualizer').classList.remove('active');
 }
 
-async function toggleMic(){
- if(!recognition){alert(uiText('micUnsupported'));return;}
- if(isRecording){recognition.stop();stopAudioVisualizer();}
- else{
-  recognition.lang=document.getElementById('lang').value==='English Only'
-   ? 'en-US'
-   : 'en-AU';
-  try{
-   recognition.start();
-   startAudioVisualizer();
-  }catch(error){
-   stopAudioVisualizer();
-   console.error('Could not start voice recording:',error);
-   alert(uiText('micError')+(error instanceof Error?error.message:'unknown')+uiText('micErrorHelp'));
+function audioMimeType(){
+ const options=[
+  'audio/webm;codecs=opus',
+  'audio/mp4',
+  'audio/ogg;codecs=opus',
+  'audio/webm',
+  'audio/ogg'
+ ];
+ if(typeof MediaRecorder.isTypeSupported!=='function'){return '';}
+ return options.find(type=>MediaRecorder.isTypeSupported(type))||'';
+}
+
+async function transcribeRecording(blob){
+ isProcessingAudio=true;
+ setVoiceStatus(uiText('micTranscribing'));
+ const formData=new FormData();
+ formData.append('audio',blob,'voice-note');
+ formData.append('lang',document.getElementById('lang').value);
+ try{
+  const response=await fetch('/api/transcribe',{method:'POST',body:formData});
+  const data=await response.json();
+  if(!response.ok){
+   if(response.status===503&&data.error?.includes('not configured')){
+    throw new Error(uiText('micNotConfigured'));
+   }
+   if(response.status===503){throw new Error(uiText('aiUnavailable'));}
+   if(response.status===504){throw new Error(uiText('aiTimedOut'));}
+   if(response.status===413){throw new Error(uiText('micTooLarge'));}
+   if(response.status===422){throw new Error(uiText('micNoSpeech'));}
+   throw new Error(uiText('micFailed'));
   }
+  if(typeof data.transcript!=='string'||!data.transcript.trim()){
+   throw new Error(uiText('micNoSpeech'));
+  }
+  document.getElementById('q').value=data.transcript.trim();
+  setVoiceStatus('');
+  await ask();
+ }catch(error){
+  setVoiceStatus(error instanceof Error?error.message:uiText('micFailed'));
+ }finally{
+  isProcessingAudio=false;
+ }
+}
+
+function finishRecording(recorder){
+ isRecording=false;
+ setRecordingButton(false);
+ stopAudioVisualizer();
+ if(audioStream){audioStream.getTracks().forEach(track=>track.stop());audioStream=null;}
+ const blob=new Blob(recordedChunks,{type:recorder.mimeType||'audio/webm'});
+ recordedChunks=[];
+ mediaRecorder=null;
+ if(blob.size===0){
+  setVoiceStatus(uiText('micNoSpeech'));
+  return;
+ }
+ transcribeRecording(blob);
+}
+
+async function toggleMic(){
+ if(isProcessingAudio||isRequestingRecording){return;}
+ if(isRecording){
+  if(mediaRecorder?.state==='recording'){mediaRecorder.stop();}
+  return;
+ }
+ if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){
+  setVoiceStatus(uiText('micUnsupported'));
+  return;
+ }
+
+ isRequestingRecording=true;
+ setVoiceStatus(uiText('micPermission'));
+ try{
+  audioStream=await navigator.mediaDevices.getUserMedia({audio:true});
+  const mimeType=audioMimeType();
+  mediaRecorder=mimeType
+   ? new MediaRecorder(audioStream,{mimeType})
+   : new MediaRecorder(audioStream);
+  recordedChunks=[];
+  mediaRecorder.ondataavailable=event=>{
+   if(event.data.size>0){recordedChunks.push(event.data);}
+  };
+  mediaRecorder.onstop=()=>finishRecording(mediaRecorder);
+  mediaRecorder.onerror=()=>{
+   setVoiceStatus(uiText('micFailed'));
+   if(mediaRecorder?.state==='recording'){mediaRecorder.stop();}
+  };
+  mediaRecorder.start(250);
+  isRecording=true;
+  setRecordingButton(true);
+  setVoiceStatus(uiText('micRecording'));
+  startAudioVisualizer(audioStream);
+ }catch(error){
+  if(audioStream){audioStream.getTracks().forEach(track=>track.stop());audioStream=null;}
+  setVoiceStatus(
+   error instanceof DOMException&&error.name==='NotAllowedError'
+    ? uiText('micPermissionDenied')
+    : uiText('micFailed')
+  );
+  console.error('Could not start voice recording:',error);
+ }finally{
+  isRequestingRecording=false;
  }
 }
 

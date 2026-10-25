@@ -1,3 +1,4 @@
+import io
 import os
 import unittest
 from unittest.mock import patch
@@ -107,12 +108,114 @@ class ChatEndpointTests(unittest.TestCase):
         self.assertIn("{text:text.slice(translationStart),tokPisin:false}", html)
         self.assertIn("item.lang.toLowerCase().startsWith('en-au')", html)
         self.assertIn("item.lang.toLowerCase().startsWith('en-nz')", html)
-        self.assertIn("recognition.lang='en-AU';", html)
-        self.assertIn("recognition.lang=document.getElementById('lang').value==='English Only'", html)
-        self.assertIn("recognition.start();\n   startAudioVisualizer();", html)
-        self.assertNotIn("await startAudioVisualizer();", html)
-        self.assertIn("lang})", html)
+        self.assertIn("navigator.mediaDevices?.getUserMedia", html)
+        self.assertIn("window.MediaRecorder", html)
+        self.assertIn("formData.append('audio',blob,'voice-note')", html)
+        self.assertIn("fetch('/api/transcribe'", html)
+        self.assertNotIn("SpeechRecognition", html)
         self.assertIn('onclick="speakText(this)"', html)
+
+    def test_transcribes_tok_pisin_voice_note_and_returns_text(self):
+        transcription = gemini_response(200, {"text": "Yu ken helpim mi?"})
+        with (
+            patch.dict(os.environ, {"GROQ_API_KEY": "groq-test-key"}),
+            patch.object(skultok.requests, "post", return_value=transcription) as post,
+        ):
+            response = self.client.post(
+                "/api/transcribe",
+                data={
+                    "lang": "Tok Pisin Only",
+                    "audio": (io.BytesIO(b"test audio"), "voice.webm", "audio/webm"),
+                },
+                content_type="multipart/form-data",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json, {"transcript": "Yu ken helpim mi?"})
+        self.assertEqual(post.call_args.args[0], skultok.GROQ_TRANSCRIPTION_URL)
+        self.assertEqual(post.call_args.kwargs["data"]["model"], "whisper-large-v3-turbo")
+        self.assertIn("Tok Pisin", post.call_args.kwargs["data"]["prompt"])
+        self.assertNotIn("language", post.call_args.kwargs["data"])
+        audio_upload = post.call_args.kwargs["files"]["file"]
+        self.assertEqual(audio_upload[0], "voice.webm")
+        self.assertEqual(audio_upload[1].read(), b"test audio")
+        self.assertEqual(audio_upload[2], "audio/webm")
+
+    def test_transcription_uses_english_language_hint_when_selected(self):
+        with (
+            patch.dict(os.environ, {"GROQ_API_KEY": "groq-test-key"}),
+            patch.object(
+                skultok.requests, "post", return_value=gemini_response(200, {"text": "Hello"})
+            ) as post,
+        ):
+            response = self.client.post(
+                "/api/transcribe",
+                data={
+                    "lang": "English Only",
+                    "audio": (io.BytesIO(b"test audio"), "voice.webm", "audio/webm"),
+                },
+                content_type="multipart/form-data",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(post.call_args.kwargs["data"]["language"], "en")
+
+    def test_transcription_rejects_missing_key_empty_or_unsupported_audio(self):
+        with patch.dict(os.environ, {"GROQ_API_KEY": ""}):
+            no_key = self.client.post(
+                "/api/transcribe",
+                data={"audio": (io.BytesIO(b"audio"), "voice.webm", "audio/webm")},
+            )
+        with patch.dict(os.environ, {"GROQ_API_KEY": "groq-test-key"}):
+            empty = self.client.post(
+                "/api/transcribe",
+                data={"audio": (io.BytesIO(b""), "voice.webm", "audio/webm")},
+            )
+            unsupported = self.client.post(
+                "/api/transcribe",
+                data={"audio": (
+                    io.BytesIO(b"audio"), "voice.bin", "application/octet-stream"
+                )},
+            )
+
+        self.assertEqual(no_key.status_code, 503)
+        self.assertEqual(empty.status_code, 400)
+        self.assertEqual(unsupported.status_code, 415)
+
+    def test_transcription_maps_provider_rate_limit_to_service_unavailable(self):
+        with (
+            patch.dict(os.environ, {"GROQ_API_KEY": "groq-test-key"}),
+            patch.object(
+                skultok.requests, "post", return_value=gemini_response(429)
+            ),
+        ):
+            response = self.client.post(
+                "/api/transcribe",
+                data={"audio": (io.BytesIO(b"test audio"), "voice.webm", "audio/webm")},
+                content_type="multipart/form-data",
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.mimetype, "application/json")
+
+    def test_transcription_rejects_audio_over_upload_limit(self):
+        with patch.dict(os.environ, {"GROQ_API_KEY": "groq-test-key"}):
+            response = self.client.post(
+                "/api/transcribe",
+                data={
+                    "audio": (
+                        io.BytesIO(b"x" * (skultok.MAX_AUDIO_UPLOAD_BYTES + 1)),
+                        "voice.webm",
+                        "audio/webm",
+                    )
+                },
+                content_type="multipart/form-data",
+            )
+
+        self.assertEqual(response.status_code, 413)
+        self.assertEqual(
+            response.json, {"error": "The audio recording is too large."}
+        )
 
     def test_returns_service_unavailable_after_third_503(self):
         with (
