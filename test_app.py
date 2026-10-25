@@ -191,5 +191,31 @@ class ChatEndpointTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 413)
         self.assertEqual(response.json, {"error": "Request body is too large."})
+
+    def test_unexpected_api_exception_returns_safe_json(self):
+        with patch.object(
+            skultok.requests, "post", side_effect=RuntimeError("sensitive detail")
+        ):
+            response = self.client.post("/api/chat", json={"message": "Hello"})
+
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.mimetype, "application/json")
+        self.assertEqual(
+            response.json,
+            {"error": "An unexpected server error occurred. Please try again."},
+        )
+        self.assertNotIn(b"sensitive detail", response.data)
+
+    def test_unknown_and_unsupported_api_routes_return_json(self):
+        not_found = self.client.get("/api/unknown")
+        method_not_allowed = self.client.get("/api/chat")
+
+        self.assertEqual(not_found.status_code, 404)
+        self.assertEqual(not_found.mimetype, "application/json")
+        self.assertIn("error", not_found.json)
+        self.assertEqual(method_not_allowed.status_code, 405)
+        self.assertEqual(method_not_allowed.mimetype, "application/json")
+        self.assertIn("error", method_not_allowed.json)
+
 if __name__ == "__main__":
     unittest.main()
